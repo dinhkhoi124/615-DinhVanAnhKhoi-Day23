@@ -1,41 +1,4 @@
-# ruff: noqa: E501
-"""Report generation helper.
-
-TODO(student): implement report rendering using MetricsReport data
-and the template in reports/lab_report_template.md.
-"""
-
-from __future__ import annotations
-
-from pathlib import Path
-
-from .metrics import MetricsReport
-
-
-def render_report(metrics: MetricsReport) -> str:
-    """Render a complete lab report from metrics data."""
-    # Attempt to draw the Mermaid graph dynamically
-    mermaid_section = ""
-    try:
-        from .graph import build_graph
-        g = build_graph()
-        # In newer LangGraph versions, draw_mermaid returns the raw mermaid string.
-        # If it requires extra dependencies (pygraphviz), it might fail, so we catch it.
-        mermaid_section = f"\n```mermaid\n{g.get_graph().draw_mermaid()}\n```\n"
-    except Exception as e:
-        mermaid_section = f"\n*(Could not generate Mermaid diagram dynamically: {e})*\n"
-
-    # Build the scenario metrics table
-    scenario_rows = []
-    for m in metrics.scenario_metrics:
-        success_icon = "✅ Pass" if m.success else "❌ Fail"
-        actual_route_str = m.actual_route if m.actual_route else "None"
-        scenario_rows.append(
-            f"| {m.scenario_id} | {m.expected_route} | {actual_route_str} | {success_icon} | {m.retry_count} | {m.interrupt_count} |"
-        )
-    scenario_table = "\n".join(scenario_rows)
-
-    report_markdown = f"""# Day 08 Lab Report
+# Day 08 Lab Report
 
 ## 1. Team / student
 
@@ -61,7 +24,52 @@ Our system is structured as a multi-step LangGraph state machine. It handles sup
 - **finalize**: Performs audit log completion.
 
 ### Mermaid Diagram
-{mermaid_section}
+
+```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	intake(intake)
+	classify(classify)
+	tool(tool)
+	evaluate(evaluate)
+	answer(answer)
+	clarify(clarify)
+	risky_action(risky_action)
+	approval(approval)
+	retry(retry)
+	dead_letter(dead_letter)
+	finalize(finalize)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> intake;
+	answer --> finalize;
+	approval -.-> clarify;
+	approval -.-> tool;
+	clarify --> finalize;
+	classify -.-> answer;
+	classify -.-> clarify;
+	classify -.-> retry;
+	classify -.-> risky_action;
+	classify -.-> tool;
+	dead_letter --> finalize;
+	evaluate -.-> answer;
+	evaluate -.-> retry;
+	intake --> classify;
+	retry -.-> dead_letter;
+	retry -.-> tool;
+	risky_action --> approval;
+	tool --> evaluate;
+	finalize --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
+
+```
+
 
 ## 3. State schema
 
@@ -85,18 +93,24 @@ Below are the key fields of our `AgentState` schema:
 ## 4. Scenario results
 
 Overall performance metrics:
-- **Total Scenarios**: {metrics.total_scenarios}
-- **Success Rate**: {metrics.success_rate:.2%}
-- **Average Nodes Visited**: {metrics.avg_nodes_visited:.1f}
-- **Total Retries**: {metrics.total_retries}
-- **Total Interrupts**: {metrics.total_interrupts}
-- **Resume Success**: {metrics.resume_success}
+- **Total Scenarios**: 7
+- **Success Rate**: 100.00%
+- **Average Nodes Visited**: 6.6
+- **Total Retries**: 4
+- **Total Interrupts**: 2
+- **Resume Success**: False
 
 ### Scenario Execution Details
 
 | Scenario | Expected route | Actual route | Success | Retries | Interrupts |
 |---|---|---|---:|---:|---:|
-{scenario_table}
+| S01_simple | simple | simple | ✅ Pass | 0 | 0 |
+| S02_tool | tool | tool | ✅ Pass | 0 | 0 |
+| S03_missing | missing_info | missing_info | ✅ Pass | 0 | 0 |
+| S04_risky | risky | risky | ✅ Pass | 0 | 1 |
+| S05_error | error | error | ✅ Pass | 3 | 0 |
+| S06_delete | risky | risky | ✅ Pass | 0 | 1 |
+| S07_dead_letter | error | error | ✅ Pass | 1 | 0 |
 
 ## 5. Failure analysis
 
@@ -122,13 +136,3 @@ We completed the following bonus extensions:
 If we had one more day, we would:
 1. Implement a Streamlit dashboard allowing administrators to view pending reviews and click "Approve" or "Reject" to resume the graph.
 2. Introduce concurrent tool execution using LangGraph's `Send()` fan-out.
-"""
-    return report_markdown
-
-
-
-def write_report(metrics: MetricsReport, output_path: str | Path) -> None:
-    """Write the rendered report to a file."""
-    path = Path(output_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(render_report(metrics), encoding="utf-8")

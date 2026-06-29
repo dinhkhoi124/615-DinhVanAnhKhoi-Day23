@@ -43,6 +43,9 @@ target-version = "py311"
 select = ["E", "F", "I", "B", "UP", "N", "ANN"]
 ignore = ["ANN101", "ANN102"]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ANN", "E501"]
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-q --strict-markers"

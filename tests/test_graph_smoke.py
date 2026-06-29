@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 """Graph smoke tests.
 
 These tests verify end-to-end graph execution. They will fail with NotImplementedError
@@ -9,6 +10,10 @@ because classify_node and answer_node use real LLM calls.
 
 import importlib.util
 import os
+
+import dotenv
+
+dotenv.load_dotenv()
 
 import pytest
 
